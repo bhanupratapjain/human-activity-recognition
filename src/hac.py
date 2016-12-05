@@ -6,7 +6,8 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn.calibration import calibration_curve
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.tree import DecisionTreeClassifier
 
 import __root__
 
@@ -48,27 +49,28 @@ class Classifiers:
         self.X_test = data.X_test
         self.y_test = data.y_test
         self.y_predict = {}  # {k - name_of_classifier, v - [predictions]}
-        self.c_list = {}  # {k - name_of_classifier, v - sklearn_classifier_object}
+        self.cls = {}  # {k - name_of_classifier, v - sklearn_classifier_object}
         self.scores = {}  # {k - name_of_classifier, { k - score_metric, v - score}}
 
     def add_classifier(self, classifier_name, classifier):
-        self.c_list[classifier_name] = classifier
+        self.cls[classifier_name] = classifier
 
     def fit(self):
-        for classifier_name, classifier in self.c_list.iteritems():
+        for classifier_name, classifier in self.cls.iteritems():
             classifier.fit(self.X_train, self.y_train)
 
     def predict(self):
-        for classifier_name, classifier in self.c_list.iteritems():
+        for classifier_name, classifier in self.cls.iteritems():
             self.y_predict[classifier_name] = classifier.predict(self.X_test)
 
     def get_scores(self):
-        for classifier_name, classifier in self.c_list.iteritems():
+        for classifier_name, classifier in self.cls.iteritems():
             self.__get_score(classifier_name, classifier)
 
     def __get_score(self, classifier_name, classifier):
         self.scores[classifier_name] = {
-            "accuracy": accuracy_score(self.y_test, self.y_predict[classifier_name])
+            "accuracy": accuracy_score(self.y_test, self.y_predict[classifier_name]),
+            "confusion_matrix": confusion_matrix(self.y_test, self.y_predict[classifier_name])
         }
 
     def print_scores(self):
@@ -165,12 +167,15 @@ if __name__ == "__main__":
     # print a[0:None,:]
 
     data = Data()
+    # data.load_data(3000)
     data.load_data()
     # print data.X_train
     print data.X_train.shape
     cls = Classifiers(data)
-    rfc = RandomForestClassifier(n_estimators=100)
+    dtc = DecisionTreeClassifier()
+    rfc = RandomForestClassifier(n_estimators=50)
     cls.add_classifier("rfc", rfc)
+    cls.add_classifier("dtc", dtc)
     cls.fit()
     cls.predict()
     cls.get_scores()
