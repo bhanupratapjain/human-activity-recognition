@@ -4,10 +4,14 @@ import pprint
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
+from sklearn import svm
 from sklearn.calibration import calibration_curve
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score
+from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.utils import shuffle
 
 import __root__
 
@@ -28,7 +32,7 @@ class Data:
         self.X_test = None
         self.y_test = None
 
-    def load_data(self, train_rows=None, test_rows=None):
+    def load_data(self, train_rows=None, test_rows=None, shfl=False):
         data_folder = os.path.join(PROJECT_ROOT, "data")
         X_train_file_path = os.path.join(data_folder, "Train/X_train.txt")
         y_train_file_path = os.path.join(data_folder, "Train/y_train.txt")
@@ -40,6 +44,8 @@ class Data:
         self.y_test = np.loadtxt(y_test_file_path, delimiter=' ')[0:test_rows, ]
         # self.y_train = np.loadtxt(y_test_file_path, delimiter=' ').reshape(-1, 1)
         # self.y_test = np.loadtxt(y_test_file_path, delimiter=' ').reshape(-1, 1)
+        if shfl:
+            self.X_train, self.y_train = shuffle(self.X_train, self.y_train)
 
 
 class Classifiers:
@@ -70,7 +76,7 @@ class Classifiers:
     def __get_score(self, classifier_name, classifier):
         self.scores[classifier_name] = {
             "accuracy": accuracy_score(self.y_test, self.y_predict[classifier_name]),
-            "confusion_matrix": confusion_matrix(self.y_test, self.y_predict[classifier_name])
+            # "confusion_matrix": confusion_matrix(self.y_test, self.y_predict[classifier_name])
         }
 
     def print_scores(self):
@@ -168,14 +174,22 @@ if __name__ == "__main__":
 
     data = Data()
     # data.load_data(3000)
-    data.load_data()
+    data.load_data(shfl=True)
     # print data.X_train
     print data.X_train.shape
     cls = Classifiers(data)
     dtc = DecisionTreeClassifier()
-    rfc = RandomForestClassifier(n_estimators=50)
-    cls.add_classifier("rfc", rfc)
-    cls.add_classifier("dtc", dtc)
+    gnb = GaussianNB()
+    lda = LinearDiscriminantAnalysis()
+    qda = QuadraticDiscriminantAnalysis()
+    svm = svm.SVC()
+    rfc = RandomForestClassifier(n_estimators=20)
+    cls.add_classifier("decision-trees", dtc)
+    cls.add_classifier("random-forest", rfc)
+    cls.add_classifier("gaussian-naive-bayes", gnb)
+    cls.add_classifier("linear-discriminant-analysis", lda)
+    cls.add_classifier("quadratic-discriminant-analysis", qda)
+    cls.add_classifier("support-vector-machine", svm)
     cls.fit()
     cls.predict()
     cls.get_scores()
