@@ -6,9 +6,13 @@ import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from sklearn import svm
 from sklearn.calibration import calibration_curve
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, \
+    QuadraticDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import precision_score
+from sklearn.metrics import recall_score
 from sklearn.naive_bayes import GaussianNB
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.utils import shuffle
@@ -38,9 +42,12 @@ class Data:
         y_train_file_path = os.path.join(data_folder, "Train/y_train.txt")
         X_test_file_path = os.path.join(data_folder, "Test/X_test.txt")
         y_test_file_path = os.path.join(data_folder, "Test/y_test.txt")
-        self.X_train = np.loadtxt(X_train_file_path, delimiter=' ')[0:train_rows, :]
-        self.y_train = np.loadtxt(y_train_file_path, delimiter=' ')[0:train_rows, ]
-        self.X_test = np.loadtxt(X_test_file_path, delimiter=' ')[0:test_rows, :]
+        self.X_train = np.loadtxt(X_train_file_path, delimiter=' ')[
+                       0:train_rows, :]
+        self.y_train = np.loadtxt(y_train_file_path, delimiter=' ')[
+                       0:train_rows, ]
+        self.X_test = np.loadtxt(X_test_file_path, delimiter=' ')[0:test_rows,
+                      :]
         self.y_test = np.loadtxt(y_test_file_path, delimiter=' ')[0:test_rows, ]
         # self.y_train = np.loadtxt(y_test_file_path, delimiter=' ').reshape(-1, 1)
         # self.y_test = np.loadtxt(y_test_file_path, delimiter=' ').reshape(-1, 1)
@@ -75,7 +82,14 @@ class Classifiers:
 
     def __get_score(self, classifier_name, classifier):
         self.scores[classifier_name] = {
-            "accuracy": accuracy_score(self.y_test, self.y_predict[classifier_name]),
+            "accuracy": accuracy_score(self.y_test,
+                                       self.y_predict[classifier_name]),
+            "precision": precision_score(self.y_test,
+                                         self.y_predict[classifier_name],
+                                         average='weighted'),
+            "recall": recall_score(self.y_test,
+                                   self.y_predict[classifier_name],
+                                   average='weighted')
             # "confusion_matrix": confusion_matrix(self.y_test, self.y_predict[classifier_name])
         }
 
@@ -108,7 +122,8 @@ class FeatureSelection:
         pca.fit(X)
         X = pca.transform(X)
 
-        for name, label in [('Setosa', 0), ('Versicolour', 1), ('Virginica', 2)]:
+        for name, label in [('Setosa', 0), ('Versicolour', 1),
+                            ('Virginica', 2)]:
             ax.text3D(X[y == label, 0].mean(),
                       X[y == label, 1].mean() + 1.5,
                       X[y == label, 2].mean(), name,
@@ -167,30 +182,76 @@ def test1():
     plt.show()
 
 
-if __name__ == "__main__":
-    # test1()
-    # a  = np.arange(15).reshape(5,3)
-    # print a[0:None,:]
-
+def cls_compare_no_shuff():
     data = Data()
-    # data.load_data(3000)
-    data.load_data(shfl=True)
-    # print data.X_train
-    print data.X_train.shape
+    data.load_data(shfl=False)
     cls = Classifiers(data)
     dtc = DecisionTreeClassifier()
     gnb = GaussianNB()
     lda = LinearDiscriminantAnalysis()
     qda = QuadraticDiscriminantAnalysis()
-    svm = svm.SVC()
+    linear_svc = svm.SVC(kernel='linear')
+    poly_svc = svm.SVC(kernel='poly')
+    rbf_svc = svm.SVC(kernel='rbf')
+    # LinearSVC minimizes the squared hinge loss while SVC minimizes the regular hinge loss.
+    # LinearSVC uses the One-vs-All (also known as One-vs-Rest) multiclass reduction while
+    # SVC uses the One-vs-One multiclass reduction.
+
     rfc = RandomForestClassifier(n_estimators=20)
     cls.add_classifier("decision-trees", dtc)
     cls.add_classifier("random-forest", rfc)
     cls.add_classifier("gaussian-naive-bayes", gnb)
     cls.add_classifier("linear-discriminant-analysis", lda)
     cls.add_classifier("quadratic-discriminant-analysis", qda)
-    cls.add_classifier("support-vector-machine", svm)
+    cls.add_classifier("linear-support-vector-machine", linear_svc)
+    cls.add_classifier("poly-support-vector-machine", poly_svc)
+    cls.add_classifier("rbf-support-vector-machine", rbf_svc)
     cls.fit()
     cls.predict()
     cls.get_scores()
     cls.print_scores()
+
+
+def cls_compare_shuff():
+    data = Data()
+    data.load_data(shfl=True)
+    cls = Classifiers(data)
+    dtc = DecisionTreeClassifier()
+    gnb = GaussianNB()
+    lda = LinearDiscriminantAnalysis()
+    qda = QuadraticDiscriminantAnalysis()
+    linear_svc = svm.SVC(kernel='linear')
+    poly_svc = svm.SVC(kernel='poly')
+    rbf_svc = svm.SVC(kernel='rbf')
+    # LinearSVC minimizes the squared hinge loss while SVC minimizes the regular hinge loss.
+    # LinearSVC uses the One-vs-All (also known as One-vs-Rest) multiclass reduction while
+    # SVC uses the One-vs-One multiclass reduction.
+
+    rfc = RandomForestClassifier(n_estimators=20)
+    cls.add_classifier("decision-trees", dtc)
+    cls.add_classifier("random-forest", rfc)
+    cls.add_classifier("gaussian-naive-bayes", gnb)
+    cls.add_classifier("linear-discriminant-analysis", lda)
+    cls.add_classifier("quadratic-discriminant-analysis", qda)
+    cls.add_classifier("linear-support-vector-machine", linear_svc)
+    cls.add_classifier("poly-support-vector-machine", poly_svc)
+    cls.add_classifier("rbf-support-vector-machine", rbf_svc)
+    cls.fit()
+    cls.predict()
+    cls.get_scores()
+    cls.print_scores()
+
+
+def svm_grid_search():
+    param_grid = {'C': [1e3, 5e3, 1e4, 5e4, 1e5],
+                  'gamma': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.1], }
+    data = Data()
+    data.load_data(shfl=True)
+    cls = Classifiers(data)
+    linear_svc = GridSearchCV(svm.SVC(kernel='linear', class_weight='balanced'),
+                              param_grid)
+
+
+if __name__ == "__main__":
+    cls_compare_shuff()
+    cls_compare_no_shuff()
