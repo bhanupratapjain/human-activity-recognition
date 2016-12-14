@@ -18,6 +18,8 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, \
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.grid_search import GridSearchCV
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.naive_bayes import GaussianNB
@@ -44,6 +46,7 @@ class Data:
         self.y_train = None
         self.X_test = None
         self.y_test = None
+        self.labels = None
 
     def load_data(self, train_rows=None, test_rows=None, shfl=False, scl=True):
         data_folder = os.path.join(PROJECT_ROOT, "data")
@@ -51,6 +54,7 @@ class Data:
         y_train_file_path = os.path.join(data_folder, "Train/y_train.txt")
         X_test_file_path = os.path.join(data_folder, "Test/X_test.txt")
         y_test_file_path = os.path.join(data_folder, "Test/y_test.txt")
+        labels_file_path = os.path.join(data_folder, "activity_labels.txt")
         self.X_train = np.loadtxt(X_train_file_path, delimiter=' ')[
                        0:train_rows, :]
         self.y_train = np.loadtxt(y_train_file_path, delimiter=' ')[
@@ -58,6 +62,11 @@ class Data:
         self.X_test = np.loadtxt(X_test_file_path, delimiter=' ')[0:test_rows,
                       :]
         self.y_test = np.loadtxt(y_test_file_path, delimiter=' ')[0:test_rows, ]
+        lb = np.genfromtxt(labels_file_path, delimiter=' ', dtype=None)
+        self.labels = np.asarray(map(lambda x: x[1], lb))
+        # self.labels = np.asarray(np.genfromtxt(labels_file_path,
+        # delimiter=' ',dtype=None))[:,-1]
+
         # self.y_train = np.loadtxt(y_test_file_path, delimiter=' ').reshape(
         # -1, 1)
         # self.y_test = np.loadtxt(y_test_file_path, delimiter=' ').reshape(
@@ -184,6 +193,7 @@ def cls_compare_no_shuff():
     cls.predict()
     cls.get_scores()
     cls.print_scores()
+    cls.print_scores_sys()
     cls.show_plt()
 
 
@@ -260,13 +270,17 @@ def svm_all_weighted():
 
 def svm_linear_grid_search():
     data = Data()
-    data.load_data(shfl=True)
+    data.load_data()
     cls = Classifiers(data)
     # Default c = 1
     param_grid = {'C': [1, 1e3, 5e3, 1e4, 5e4, 1e5]}
 
-    linear_svc = GridSearchCV(svm.SVC(kernel='linear', class_weight='balanced'),
-                              param_grid)
+    # linear_svc = GridSearchCV(svm.SVC(kernel='linear',
+    # class_weight='balanced'),
+    #                           param_grid)
+    linear_svc = GridSearchCV(
+        svm.SVC(kernel='linear'),
+        param_grid)
     cls.add_classifier("linear-support-vector-machine", linear_svc)
     cls.fit()
     print("Best estimator found by grid search:")
@@ -274,7 +288,7 @@ def svm_linear_grid_search():
     cls.predict()
     cls.get_scores()
     cls.print_scores()
-    cls.show_plt()
+    # cls.show_plt()
 
 
 def cls_compare_pca():
@@ -321,6 +335,44 @@ def cls_compare_pca():
                ncol=1, mode="expand", borderaxespad=0.)
 
 
+def get_scores(y_test, y_pred):
+    # Reads labels and predictions and gives accuracy, precision, recall &
+    # confusion matrix
+
+    cm = confusion_matrix(y_test, y_pred)
+    acc = accuracy_score(y_test, y_pred)
+
+    prec = np.around(np.diag(cm).astype(float) * 100 / cm.sum(axis=0),
+                     decimals=2)
+    rec = np.around(np.diag(cm).astype(float) * 100 / cm.sum(axis=1),
+                    decimals=2)
+
+    cm_full = np.vstack((cm, prec))  # adding precision row
+    cm_full = np.hstack((cm_full, (
+        np.append(rec, np.around(acc * 100, decimals=2))).reshape(len(cm_full),
+                                                                  1)))  # adding
+    # recall column & total accuracy
+
+    prec_macro = precision_score(y_test, y_pred, average='weighted')
+    rec_macro = recall_score(y_test, y_pred, average='weighted')
+
+    print('Accuracy: ', np.around(acc * 100, decimals=2))
+    print('Precision: ', round(np.mean(prec), 2))
+    print('Recall: ', round(np.mean(rec), 2))
+    print('Macro Precision: ', round(prec_macro * 100, 2))
+    print('Macro Recall: ', round(rec_macro * 100, 2))
+    print(
+        'Confusion Matrix (Activities: Walking, Upstairs, Downstairs, '
+        'Standing, Sitting, Laying')
+    print(cm)
+    print(
+        'Confusion Matrix & Scores (Actual Activities & Precision vs. '
+        'Predicted Activies & Recall; Total Accuracy)')
+    print(cm_full)
+
+    return acc, prec_macro, rec_macro, cm, cm_full
+
+
 def svm_rbf_grid_search():
     data = Data()
     data.load_data(shfl=True)
@@ -335,11 +387,19 @@ def svm_rbf_grid_search():
     cls.add_classifier("rbf-support-vector-machine", linear_svc)
     cls.fit()
     print("Best estimator found by grid search:")
-    print(cls.cls['linear-support-vector-machine'].best_estimator_)
+    print(cls.cls['rbf-support-vector-machine'].best_estimator_)
     cls.predict()
     cls.get_scores()
     cls.print_scores()
-    cls.show_plt()
+    pprint.pprint(confusion_matrix(cls.y_test,
+                                   cls.y_predict['rbf-support-vector-machine']))
+    print(classification_report(cls.y_test,
+                                cls.y_predict['rbf-support-vector-machine'],
+                                target_names=data.labels))
+
+    get_scores(cls.y_test,
+               cls.y_predict['rbf-support-vector-machine'])
+    # cls.show_plt()
 
 
 def plt_all():
@@ -401,11 +461,11 @@ def plt_all():
 
 if __name__ == "__main__":
     # cls_compare_shuff()
-    cls_compare_no_shuff()
+    # cls_compare_no_shuff()
     # svm_rbf_grid_search()
-    # svm_linear_grid_search()
+    svm_linear_grid_search()
     # svm_all_weighted()
     # svm_all_unweighted()
     # cls_compare_pca()
     # plt_all()
-    plt.show()
+    # plt.show()
