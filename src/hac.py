@@ -459,6 +459,50 @@ def plt_all():
         i += 1
 
 
+def pca():
+    pca_values = [2, 5, 10, 25, 30, 40, 50, 100, 150, 200, 250, 300, 561]
+    # pca_values = [561]
+
+    scores = {}
+
+    for v in pca_values:
+        data = Data()
+        # data.load_data(3000)
+        data.load_data(shfl=True)
+        print("Running PCA with %s components" % v)
+        pca = PCA(n_components=v)
+        data.X_train = pca.fit_transform(data.X_train)
+        data.X_test = pca.transform(data.X_test)
+        cls = Classifiers(data)
+        dtc = DecisionTreeClassifier()
+        gnb = GaussianNB()
+        lda = LinearDiscriminantAnalysis()
+        qda = QuadraticDiscriminantAnalysis()
+        linear_svc = svm.SVC(kernel='linear', class_weight='balanced')
+        poly_svc = svm.SVC(kernel='poly', class_weight='balanced')
+        rbf_svc = svm.SVC(kernel='rbf', class_weight='balanced')
+        knn = KNeighborsClassifier(12)
+        rfc = RandomForestClassifier(n_estimators=10, max_features=0.8)
+        cls.add_classifier("knn", knn)
+        cls.add_classifier("decision-trees", dtc)
+        cls.add_classifier("gaussian-naive-bayes", gnb)
+        cls.add_classifier("linear-discriminant-analysis", lda)
+        cls.add_classifier("quadratic-discriminant-analysis", qda)
+        cls.add_classifier("linear-support-vector-machine", linear_svc)
+        cls.add_classifier("poly-support-vector-machine", poly_svc)
+        cls.add_classifier("rbf-support-vector-machine", rbf_svc)
+        cls.add_classifier("random-forest", rfc)
+
+        cls.fit()
+        cls.predict()
+        cls.get_scores()
+        cls.print_scores()
+        for k, v in cls.scores.items():
+            try:
+                scores[k] += [v["accuracy"]]
+            except KeyError:
+                scores[k] = [v["accuracy"]]
+
 if __name__ == "__main__":
     # cls_compare_shuff()
     # cls_compare_no_shuff()
